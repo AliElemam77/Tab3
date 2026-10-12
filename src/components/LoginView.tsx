@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
-import { Lock, User, ArrowLeft, Sparkles, Shield } from 'lucide-react';
+import { Lock, User, ArrowLeft, Sparkles } from 'lucide-react';
 
 interface LoginViewProps {
   onLogin: (username: string, pass: string) => Promise<boolean>;
-  onDemoLogin: () => void;
+  onDemoLogin?: () => void;
   initialUsername?: string;
   initialPassword?: string;
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({
   onLogin,
-  onDemoLogin,
   initialUsername = '',
   initialPassword = ''
 }) => {
@@ -193,41 +192,6 @@ export const LoginView: React.FC<LoginViewProps> = ({
             <ArrowLeft size={16} />
           </button>
         </form>
-
-        {/* Demo Account Quick Access */}
-        <div style={{
-          marginTop: '22px',
-          paddingTop: '18px',
-          borderTop: '1px solid var(--border-subtle)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px'
-        }}>
-          <button
-            type="button"
-            onClick={onDemoLogin}
-            style={{
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--bg-surface-elevated)',
-              border: '1px dashed var(--border-glow)',
-              color: 'var(--primary)',
-              fontSize: '13px',
-              fontWeight: 700,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-          >
-            <Shield size={16} />
-            <span>تجربة سريعة بحساب تجريبي (Demo Account)</span>
-          </button>
-
-          <p style={{ fontSize: '11.5px', color: 'var(--text-dim)', margin: 0 }}>
-            بيانات تجريبية جاهزة للمعاينة: 0501234567 / 123456
-          </p>
-        </div>
       </div>
     </div>
   );
