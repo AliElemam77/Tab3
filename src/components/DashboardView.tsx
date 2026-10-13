@@ -1,20 +1,27 @@
-import React from 'react';
-import { 
-  CheckCircle2, 
-  Clock, 
-  Calendar, 
-  Layers, 
-  MessageSquare, 
-  PhoneCall, 
+import React, { useEffect, useRef } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import {
+  CheckCircle2,
+  Clock,
+  Calendar,
+  Layers,
+  MessageSquareText,
   ExternalLink,
-  Sparkles,
-  TrendingUp,
   MapPin,
-  Briefcase,
-  Target
+  ChevronLeft,
+  Code2,
+  Palette,
+  Search,
+  Target,
+  Share2,
+  Gauge
 } from 'lucide-react';
 import type { ClientProject, DepartmentKey } from '../types';
+import { DEPT_META } from '../types';
 import { TaskCard } from './TaskCard';
+
+gsap.registerPlugin(ScrollTrigger);
 
 interface DashboardViewProps {
   client: ClientProject;
@@ -22,404 +29,242 @@ interface DashboardViewProps {
 
 const ALL_DEPTS: DepartmentKey[] = ['ui', 'dev', 'seo', 'media', 'social'];
 
+const DEPT_ICON: Record<DepartmentKey, React.ReactNode> = {
+  ui: <Palette size={15} />,
+  dev: <Code2 size={15} />,
+  seo: <Search size={15} />,
+  media: <Target size={15} />,
+  social: <Share2 size={15} />,
+};
+
 export const DashboardView: React.FC<DashboardViewProps> = ({ client }) => {
-  // Calculate overall progress percentage
-  // 5 departments, each status: 0 => 0%, 1 => 50%, 2 => 100%
-  const calculateProgress = () => {
-    let totalScore = 0;
-    ALL_DEPTS.forEach(d => {
-      const st = (client[d] !== undefined && client[d] !== null)
-        ? Number(client[d])
-        : (client.deptDetails?.[d]?.status !== undefined ? Number(client.deptDetails[d]?.status) : 0);
-      if (st === 2) totalScore += 2;
-      else if (st === 1) totalScore += 1;
-    });
-    const maxScore = ALL_DEPTS.length * 2;
-    return Math.round((totalScore / maxScore) * 100);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const numRef = useRef<HTMLElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const ringRef = useRef<HTMLDivElement>(null);
+
+  const toStatus = (v: unknown): number | null => {
+    if (v === undefined || v === null) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(2, Math.max(0, Math.round(n))) : null;
   };
 
-  const progress = calculateProgress();
+  // deptDetails is the source of truth written by the dashboard —
+  // legacy top-level columns may be missing/0, so check details FIRST.
+  const getStatus = (d: DepartmentKey): number => {
+    return toStatus(client.deptDetails?.[d]?.status)
+      ?? toStatus(client[d])
+      ?? 0;
+  };
 
-  // Completed & In progress counts
-  let completedCount = 0;
-  let inProgressCount = 0;
-  ALL_DEPTS.forEach(d => {
-    const st = (client[d] !== undefined && client[d] !== null)
-      ? Number(client[d])
-      : (client.deptDetails?.[d]?.status !== undefined ? Number(client.deptDetails[d]?.status) : 0);
-    if (st === 2) completedCount++;
-    else if (st === 1) inProgressCount++;
+  const statuses = ALL_DEPTS.map((d) => ({ key: d, st: getStatus(d) }));
+  let score = 0, done = 0, active = 0;
+  statuses.forEach(({ st }) => {
+    if (st === 2) { score += 2; done++; }
+    else if (st === 1) { score += 1; active++; }
   });
+  const waiting = ALL_DEPTS.length - done - active;
+  const progress = Math.round((score / (ALL_DEPTS.length * 2)) * 100);
 
   const waSupportUrl = client.wa
     ? (client.wa.startsWith('http') ? client.wa : `https://wa.me/${client.wa.replace(/[^0-9]/g, '')}`)
     : 'https://wa.me/';
 
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const ctx = gsap.context(() => {
+      gsap.from('.dash-head', { y: 22, opacity: 0, duration: 0.65, ease: 'power3.out' });
+      gsap.from('.progress-card', { y: 24, opacity: 0, duration: 0.65, delay: 0.1, ease: 'power3.out' });
+      gsap.from('.kpi', { y: 20, opacity: 0, duration: 0.55, stagger: 0.08, delay: 0.2, ease: 'power3.out' });
+      gsap.from('.step', { y: 12, opacity: 0, duration: 0.45, stagger: 0.06, delay: 0.45, ease: 'power3.out' });
+      gsap.from('.note-banner', { y: 16, opacity: 0, duration: 0.5, delay: 0.25, ease: 'power3.out' });
+
+      const obj = { v: 0 };
+      gsap.to(obj, {
+        v: progress, duration: 1.4, delay: 0.25, ease: 'power2.out',
+        onUpdate: () => { if (numRef.current) numRef.current.textContent = `${Math.round(obj.v)}%`; }
+      });
+
+      if (barRef.current) {
+        gsap.fromTo(barRef.current, { scaleX: 0 }, { scaleX: progress / 100, duration: 1.3, delay: 0.3, ease: 'power3.out' });
+      }
+      if (ringRef.current) {
+        gsap.fromTo(ringRef.current,
+          { '--p': 0 },
+          { '--p': progress, duration: 1.4, delay: 0.25, ease: 'power2.out' });
+      }
+
+      gsap.utils.toArray<HTMLElement>('.task-item').forEach((el) => {
+        gsap.from(el, {
+          y: 28, opacity: 0, duration: 0.6, ease: 'power3.out',
+          scrollTrigger: { trigger: el, start: 'top 88%', once: true }
+        });
+      });
+      gsap.from('.support-card', {
+        y: 24, opacity: 0, duration: 0.6, ease: 'power3.out',
+        scrollTrigger: { trigger: '.support-card', start: 'top 92%', once: true }
+      });
+    }, rootRef);
+    return () => ctx.revert();
+  }, [client.id, progress]);
+
   return (
-    <div className="animate-fade-in" style={{
-      maxWidth: '1200px',
-      margin: '0 auto',
-      padding: '24px 20px 60px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '24px'
-    }}>
-      {/* ================= HERO GREETING BANNER ================= */}
-      <div className="glass-card" style={{
-        padding: '28px 24px',
-        position: 'relative',
-        overflow: 'hidden',
-        background: 'linear-gradient(135deg, rgba(22, 32, 53, 0.9) 0%, rgba(15, 23, 42, 0.8) 100%)'
-      }}>
-        <div style={{
-          position: 'absolute',
-          top: '-40px',
-          left: '-40px',
-          width: '200px',
-          height: '200px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(59, 130, 246, 0.25) 0%, transparent 70%)',
-          pointerEvents: 'none'
-        }} />
-
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '20px',
-          flexWrap: 'wrap'
-        }}>
-          {/* Client Details */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '3px 10px',
-                borderRadius: 'var(--radius-full)',
-                background: 'var(--primary-soft)',
-                color: 'var(--primary)',
-                fontSize: '12px',
-                fontWeight: 700
-              }}>
-                <Sparkles size={13} />
-                مشروع نشط وموثق
-              </span>
-
-              {client.city && (
-                <span style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '12px',
-                  color: 'var(--text-muted)'
-                }}>
-                  <MapPin size={13} />
-                  {client.city}
-                </span>
-              )}
+    <div className="page" ref={rootRef} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      <div className="dash-head">
+        <div className="crumb"><span className="pill">مشروعي</span> <ChevronLeft size={13} /> نظرة عامة</div>
+        <div className="page-head">
+          <div style={{ minWidth: 0 }}>
+            <h2>أهلاً {client.name} <span className="thin">— هذا ملخص مشروعك اليوم</span></h2>
+            <div className="meta">
+              {client.cat && <span className="meta-chip primary">{client.cat}</span>}
+              {client.city && <span className="meta-chip"><MapPin size={13} /> {client.city}</span>}
+              {client.by && <span className="meta-chip">مدير الحساب: {client.by}</span>}
             </div>
-
-            <h2 style={{ fontSize: '26px', fontWeight: 900, color: 'var(--text-main)', margin: '0 0 6px 0' }}>
-              أهلاً بك، {client.name}
-            </h2>
-            <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Briefcase size={15} color="var(--primary)" />
-              <span>النشاط: {client.cat || 'مشروع متكامل'}</span>
-              {client.by && <span>· مسؤول المتابعة: {client.by}</span>}
-            </p>
           </div>
+        </div>
+      </div>
 
-          {/* Progress Circular Display */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
-            background: 'var(--bg-surface-elevated)',
-            padding: '14px 20px',
-            borderRadius: 'var(--radius-lg)',
-            border: '1px solid var(--border-medium)',
-            boxShadow: 'var(--shadow-sm)'
-          }}>
-            <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: '11.5px', color: 'var(--text-dim)', display: 'block', fontWeight: 600 }}>
-                نسبة إنجاز المشروع
-              </span>
-              <b style={{ fontSize: '28px', fontWeight: 900, color: 'var(--primary)', lineHeight: 1.1 }}>
-                {progress}%
-              </b>
-              <span style={{ fontSize: '11px', color: progress >= 100 ? 'var(--success)' : 'var(--text-muted)', display: 'block' }}>
-                {progress >= 100 ? 'جاهز للتسليم بالكامل' : 'يسير العمل بنشاط'}
-              </span>
-            </div>
-
-            {/* Circular Progress Meter */}
-            <div style={{
-              width: '64px',
-              height: '64px',
-              borderRadius: '50%',
-              background: `conic-gradient(var(--primary) ${progress * 3.6}deg, var(--border-subtle) 0deg)`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: 'var(--shadow-glow)'
-            }}>
-              <div style={{
-                width: '50px',
-                height: '50px',
-                borderRadius: '50%',
-                background: 'var(--bg-surface-elevated)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '13px',
-                fontWeight: 800,
-                color: 'var(--text-main)'
-              }}>
-                <TrendingUp size={20} color="var(--primary)" />
+      {/* Progress */}
+      <section className="card progress-card" aria-label="نسبة إنجاز المشروع">
+        <div className="progress-pad">
+          <div className="progress-head">
+            <span className="card-eyebrow" style={{ flex: 1 }}><Gauge size={13} /> أداء المشروع</span>
+            <span className={`phase-chip ${progress < 100 ? 'live' : ''}`}>
+              <i />
+              {progress >= 100 ? 'مكتمل — جاهز للتسليم' : active > 0 ? 'مرحلة تنفيذ نشطة' : 'بانتظار بدء التنفيذ'}
+            </span>
+          </div>
+          <div className="progress-top">
+            <div className="progress-num">
+              <div className="ring" ref={ringRef} style={{ '--p': progress } as React.CSSProperties}>
+                <div className="ring-inner" style={{ width: 60, height: 60, fontSize: 14 }}>
+                  <b ref={numRef}>{progress}%</b>
+                </div>
+              </div>
+              <div className="progress-label">
+                <small>إنجاز المشروع الإجمالي</small>
+                <strong>{progress}%</strong>
+                <br />
+                <span>
+                  {progress >= 100 ? 'اكتمل المشروع — جاهز للتسليم' : done === 0 && active === 0 ? 'تم استلام طلبك وجارٍ بدء التنفيذ' : `مكتمل: ${done} · جارٍ: ${active} · منتظر: ${waiting}`}
+                </span>
               </div>
             </div>
+            <span className="meta-chip"><Calendar size={13} /> التسليم: {client.expectedDelivery || 'حسب جدول المراحل'}</span>
+          </div>
+          <div className="bar-row"><span>تقدم المراحل</span><span>{done} من 5 مكتملة</span></div>
+          <div className="bar" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+            <div ref={barRef} style={{ width: '100%', transform: `scaleX(${progress / 100})` }} />
+          </div>
+
+          <div className="progress-divider" />
+          <div className="stepper" aria-label="حالة الأقسام">
+            {statuses.map(({ key, st }) => (
+              <div key={key} className={`step ${st === 2 ? 'done' : st === 1 ? 'work' : ''}`} title={DEPT_META[key].name}>
+                <span className="s-ic">{st === 2 ? <CheckCircle2 size={15} /> : st === 1 ? <Clock size={15} /> : DEPT_ICON[key]}</span>
+                <small>{DEPT_META[key].shortName}</small>
+              </div>
+            ))}
+          </div>
+          <div className="legend">
+            <span><i className="f" /> مكتمل</span>
+            <span><i className="h" /> قيد التنفيذ</span>
+            <span><i /> منتظر</span>
           </div>
         </div>
+      </section>
 
-        {/* Big Glow Progress Bar */}
-        <div style={{ marginTop: '22px' }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: '12px',
-            color: 'var(--text-muted)',
-            marginBottom: '6px'
-          }}>
-            <span>مراحل التنفيذ والتسليم</span>
-            <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{completedCount} من 5 مكتملة</span>
+      {/* KPIs */}
+      <section className="kpi-grid">
+        <div className="card card-hover kpi kpi-featured">
+          <div className="kpi-top">
+            <div className="kpi-ic"><CheckCircle2 size={20} /></div>
+            <span className="kpi-delta">{done}/5 أقسام</span>
           </div>
-          <div style={{
-            height: '10px',
-            borderRadius: 'var(--radius-full)',
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border-subtle)',
-            overflow: 'hidden',
-            position: 'relative'
-          }}>
-            <div style={{
-              height: '100%',
-              width: `${progress}%`,
-              background: 'var(--primary-gradient)',
-              borderRadius: 'var(--radius-full)',
-              transition: 'width 0.8s cubic-bezier(0.16, 1, 0.3, 1)',
-              boxShadow: '0 0 12px var(--primary)'
-            }} />
+          <div className="kpi-main">
+            <div className="kpi-value">{done} مراحل</div>
+            <div className="kpi-label">مراحل مكتملة ومُسلّمة</div>
           </div>
+          <div className="kpi-foot"><CheckCircle2 size={12} /> {done === 5 ? 'كل المراحل اكتملت' : `${5 - done} متبقية للإنجاز الكامل`}</div>
         </div>
-      </div>
-
-      {/* ================= KEY MILESTONE KPI CARDS ================= */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-        gap: '14px'
-      }}>
-        {/* KPI 1: Completed */}
-        <div className="glass-card" style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--success-soft)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--success)'
-          }}>
-            <CheckCircle2 size={24} />
+        <div className="card card-hover kpi">
+          <div className="kpi-top">
+            <div className="kpi-ic"><Clock size={20} /></div>
+            <span className={`kpi-delta ${active > 0 ? 'on' : ''}`}>{active > 0 ? 'نشط الآن' : 'لا نشاط'}</span>
           </div>
-          <div>
-            <span style={{ fontSize: '11.5px', color: 'var(--text-dim)', display: 'block' }}>المراحل المكتملة</span>
-            <b style={{ fontSize: '19px', fontWeight: 800, color: 'var(--text-main)' }}>
-              {completedCount} مراحل
-            </b>
+          <div className="kpi-main">
+            <div className="kpi-value">{active} مراحل</div>
+            <div className="kpi-label">قيد التنفيذ حالياً</div>
           </div>
+          <div className="kpi-foot"><Clock size={12} /> {active > 0 ? 'الفريق يعمل عليها الآن' : 'بانتظار بدء مرحلة جديدة'}</div>
         </div>
-
-        {/* KPI 2: In Progress */}
-        <div className="glass-card" style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--primary-soft)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--primary)'
-          }}>
-            <Clock size={24} />
+        <div className="card card-hover kpi">
+          <div className="kpi-top">
+            <div className="kpi-ic"><Layers size={20} /></div>
+            <span className="kpi-delta">النطاق الكامل</span>
           </div>
-          <div>
-            <span style={{ fontSize: '11.5px', color: 'var(--text-dim)', display: 'block' }}>قيد العمل النشط</span>
-            <b style={{ fontSize: '19px', fontWeight: 800, color: 'var(--text-main)' }}>
-              {inProgressCount} مراحل
-            </b>
+          <div className="kpi-main">
+            <div className="kpi-value">5 أقسام</div>
+            <div className="kpi-label">إجمالي أقسام العمل</div>
           </div>
+          <div className="kpi-foot"><Layers size={12} /> برمجة · تصميم · SEO · إعلانات · سوشيال</div>
         </div>
-
-        {/* KPI 3: Total Scope */}
-        <div className="glass-card" style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: 'var(--radius-md)',
-            background: 'rgba(139, 92, 246, 0.15)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#8b5cf6'
-          }}>
-            <Layers size={24} />
+        <div className="card card-hover kpi">
+          <div className="kpi-top">
+            <div className="kpi-ic"><Calendar size={20} /></div>
+            <span className="kpi-delta">الموعد</span>
           </div>
-          <div>
-            <span style={{ fontSize: '11.5px', color: 'var(--text-dim)', display: 'block' }}>إجمالي أقسام العمل</span>
-            <b style={{ fontSize: '19px', fontWeight: 800, color: 'var(--text-main)' }}>
-              5 أقسام رئيسية
-            </b>
+          <div className="kpi-main">
+            <div className="kpi-value" style={{ fontSize: 'clamp(16px, 4vw, 19px)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {client.expectedDelivery || 'حسب الخطة'}
+            </div>
+            <div className="kpi-label">التسليم المتوقع</div>
           </div>
+          <div className="kpi-foot"><Calendar size={12} /> حسب جدول المراحل المعتمد</div>
         </div>
+      </section>
 
-        {/* KPI 4: Expected Delivery */}
-        <div className="glass-card" style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--warning-soft)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--warning)'
-          }}>
-            <Calendar size={24} />
-          </div>
-          <div>
-            <span style={{ fontSize: '11.5px', color: 'var(--text-dim)', display: 'block' }}>موعد التسليم المتوقع الإجمالي</span>
-            <b style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-main)' }}>
-              {client.expectedDelivery || 'حسب جدول المراحل'}
-            </b>
-          </div>
-        </div>
-      </div>
-
-      {/* ================= TEAM NOTE / CLIENT MESSAGE BANNER ================= */}
       {client.clientNote && (
-        <div className="glass-card" style={{
-          padding: '18px 22px',
-          background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.08) 0%, rgba(99, 102, 241, 0.05) 100%)',
-          border: '1px solid var(--border-glow)',
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '14px'
-        }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--primary-gradient)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            flexShrink: 0
-          }}>
-            <MessageSquare size={20} />
+        <section className="card note-banner" aria-label="رسالة الفريق">
+          <div className="ic"><MessageSquareText size={17} /></div>
+          <div style={{ minWidth: 0 }}>
+            <b className="t">تحديث من فريق العمل</b>
+            <p>{client.clientNote}</p>
           </div>
-          <div style={{ flex: 1 }}>
-            <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--primary)', display: 'block', marginBottom: '4px' }}>
-              رسالة وتحديث فريق العمل لمشروعكم:
-            </span>
-            <p style={{ fontSize: '14px', color: 'var(--text-main)', margin: 0, lineHeight: 1.6 }}>
-              "{client.clientNote}"
-            </p>
-          </div>
-        </div>
+        </section>
       )}
 
-      {/* ================= DEPARTMENT TASKS GRID ================= */}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-            <Target size={18} color="var(--primary)" />
-            <span>تفاصيل مراحل المشروع وأقسام التنفيذ</span>
-          </h3>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            تحديث لحظي ومباشر من فريق العمل
-          </span>
+      <section>
+        <div className="section-title">
+          <h3>مراحل التنفيذ</h3>
+          <span className="hint">{done}/5 مكتملة · تُحدّث مباشرة من الفريق</span>
         </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '14px' }}>
-          {ALL_DEPTS.map(deptKey => (
-            <TaskCard
-              key={deptKey}
-              deptKey={deptKey}
-              legacyStatus={client[deptKey]}
-              taskDetails={client.deptDetails?.[deptKey]}
-            />
+        <div className="tasks-list">
+          {ALL_DEPTS.map((k, i) => (
+            <TaskCard key={k} deptKey={k} legacyStatus={client[k]} taskDetails={client.deptDetails?.[k]} index={i} />
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* ================= SUPPORT & WHATSAPP CTA ================= */}
-      <div className="glass-card" style={{
-        padding: '24px',
-        textAlign: 'center',
-        background: 'var(--bg-surface-elevated)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '14px'
-      }}>
-        <div style={{
-          width: '52px',
-          height: '52px',
-          borderRadius: '50%',
-          background: 'var(--wa-color)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#fff',
-          boxShadow: '0 0 20px rgba(37, 211, 102, 0.35)'
-        }}>
-          <PhoneCall size={24} />
+      <section className="card support-card">
+        <div className="support-ic">
+          <MessageSquareText size={22} />
         </div>
-        <div>
-          <h4 style={{ fontSize: '17px', fontWeight: 800, margin: '0 0 6px 0', color: 'var(--text-main)' }}>
-            هل لديك أي استفسار أو طلب إضافة في مشروعك؟
-          </h4>
-          <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
-            فريق الدعم ومدير حسابك متاحين للرد والمتابعة معك عبر واتساب.
-          </p>
+        <div style={{ minWidth: 0, flex: '1 1 200px' }}>
+          <div className="card-eyebrow" style={{ color: 'inherit', opacity: 0.7, marginBottom: 4 }}>الدعم المباشر</div>
+          <h4>تحتاج تعديلاً أو لديك استفسار؟</h4>
+          <p>تواصل مع مدير مشروعك مباشرة — نرد عادة خلال ساعات العمل.</p>
         </div>
-        <a
-          href={waSupportUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '12px 26px',
-            borderRadius: 'var(--radius-full)',
-            background: 'var(--wa-color)',
-            color: '#fff',
-            fontSize: '14px',
-            fontWeight: 800,
-            boxShadow: '0 4px 14px rgba(37, 211, 102, 0.4)',
-            transition: 'var(--transition)'
-          }}
-        >
-          <span>تواصل مع مدير مشروعك على واتساب</span>
-          <ExternalLink size={16} />
+        <a href={waSupportUrl} target="_blank" rel="noopener noreferrer" className="btn-wa">
+          <span>مراسلة عبر واتساب</span>
+          <ExternalLink size={15} />
+        </a>
+      </section>
+
+      <div className="mobile-cta">
+        <a href={waSupportUrl} target="_blank" rel="noopener noreferrer" className="btn-wa">
+          <span>تواصل واتساب مع مدير مشروعك</span>
+          <ExternalLink size={15} />
         </a>
       </div>
     </div>

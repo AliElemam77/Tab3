@@ -62,50 +62,56 @@ export const DEPT_META: Record<DepartmentKey, {
   color: string;
   bgSoft: string;
   description: string;
+  step: string;
 }> = {
   dev: {
     name: 'البرمجة والتطوير',
     shortName: 'برمجة',
     defaultRole: 'مطور برمجيات وتطبيقات',
     iconName: 'code',
-    color: '#3b82f6',
-    bgSoft: 'rgba(59, 130, 246, 0.12)',
-    description: 'تطوير هيكل الموقع/المتجر، برمجة الوظائف، وربط بوابات الدفع والشحن'
+    color: 'var(--text)',
+    bgSoft: 'var(--bg-muted)',
+    description: 'تطوير هيكل الموقع/المتجر، برمجة الوظائف، وربط بوابات الدفع والشحن',
+    step: '01'
   },
   ui: {
     name: 'تصميم الواجهات وتجربة المستخدم (UI/UX)',
     shortName: 'تصميم UI',
     defaultRole: 'مصمم واجهات منتجات',
     iconName: 'palette',
-    color: '#8b5cf6',
-    bgSoft: 'rgba(139, 92, 246, 0.12)',
-    description: 'رسم واجهات المستخدم، تصميم الهوية البصرية، وتجربة التسوق والشراء'
+    color: 'var(--text)',
+    bgSoft: 'var(--bg-muted)',
+    description: 'رسم واجهات المستخدم، تصميم الهوية البصرية، وتجربة التسوق والشراء',
+    step: '02'
   },
   seo: {
     name: 'تهيئة محركات البحث (SEO)',
     shortName: 'SEO',
     defaultRole: 'أخصائي تحسين محركات البحث',
     iconName: 'search',
-    color: '#10b981',
-    bgSoft: 'rgba(16, 185, 129, 0.12)',
-    description: 'تحسين سرعة الموقع، فحص الكلمات المفتاحية، والظهور في نتائج قوقل الأولى'
+    color: 'var(--text)',
+    bgSoft: 'var(--bg-muted)',
+    description: 'تحسين سرعة الموقع، فحص الكلمات المفتاحية، والظهور في نتائج قوقل الأولى',
+    step: '03'
   },
   media: {
     name: 'الحملات الإعلانية والميديا باير',
     shortName: 'ميديا',
     defaultRole: 'مدير حملات إعلانية',
     iconName: 'target',
-    color: '#f59e0b',
-    bgSoft: 'rgba(245, 158, 11, 0.12)',
-    description: 'إطلاق وتوجيه الإعلانات الممولة على سناب، تيك توك، ميتا، وجوجل لزيادة المبيعات'
+    color: 'var(--text)',
+    bgSoft: 'var(--bg-muted)',
+    description: 'إطلاق وتوجيه الإعلانات الممولة على سناب، تيك توك، ميتا، وجوجل لزيادة المبيعات',
+    step: '04'
   },
   social: {
     name: 'إدارة وتفعيل منصات السوشيال ميديا',
     shortName: 'سوشيال',
     defaultRole: 'أخصائي إدارة مجتمعات ومحتوى',
     iconName: 'share-2',
-    color: '#ec4899',
-    bgSoft: 'rgba(236, 72, 153, 0.12)',
-    description: 'صناعة المحتوى، جدولة المنشورات التفاعلية، والتواصل مع الجمهور المستهدف'
+    color: 'var(--text)',
+    bgSoft: 'var(--bg-muted)',
+    description: 'صناعة المحتوى، جدولة المنشورات التفاعلية، والتواصل مع الجمهور المستهدف',
+    step: '05'
   }
 };
